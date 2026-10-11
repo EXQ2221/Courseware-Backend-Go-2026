@@ -16,12 +16,12 @@
 | 03 | 常用标准库         | fmt、io、os、strings、bytes、time、math/rand、文件与目录操作等      | 凌珑  |
 | 04 | 并发编程          | 操作系统并发基础、goroutine、channel、互斥锁、WaitGroup、常见并发模型      | 刘庆喆  |
 | 05 | Web 开发        | 计算机网络基础、HTTP、Gin 框架与中间件、Hertz、项目结构、RESTful API       | 盛小峰  |
-| 06 | MySQL         | 安装与命令行操作、SQL 语句、Go 数据库操作、GORM ORM 框架                  | 待定  |
+| 06 | MySQL         | 安装与命令行操作、SQL 语句、Go 数据库操作、GORM ORM 框架                  | 唐浩铭 |
 | 07 | 非关系型数据库       | Redis（缓存、锁）、MongoDB（文档存储）                              | 待定  |
 | 08 | 容器化           | Linux 基础、Docker 基础概念、镜像与容器、Dockerfile 编写、Compose 编排 | 待定  |
 | 09 | 单体项目实战        | 日志与配置管理、Web + DB + Redis 实战、Docker 部署与复盘优化             | 陈浩然  |
 | 10 | 微服务及微服务框架     | 微服务理论、Kitex 与 go-zero                                 | 陈浩然  |
-| 11 | 服务发现与服务治理     | 服务发现中间件，熔断、限流、降级等服务治理相关内容                             | 待定  |
+| 11 | 服务发现与服务治理     | 服务发现中间件，熔断、限流、降级等服务治理相关内容                             | 唐浩铭 |
 | 12 | 消息队列          | Kafka 及其他 MQ、消息队列常见问题与解决方案                            | 待定  |
 | 13 | API 网关        | 常见网关如 Traefik、Nginx 及其应用                              | 待定  |
 | 14 | 可观测性          | OpenTelemetry、Prometheus、Jaeger                       | 待定  |
