@@ -1023,7 +1023,7 @@ type eface struct {
 
 #### 运行期：
 
-​     如果有类型要包装成接口，就通过`getitab`去查`itabTableType`,如果不存在就构造`itab`然后扔进`iface`
+如果有类型要包装成接口，就通过`getitab`去查`itabTableType`,如果不存在就构造`itab`然后扔进`iface`
 
 **总结**：编译期决定“接口签名集”和“类型方法集”；运行期通过 `getitab` 将 `(接口类型, 具体类型)` 映射成 `itab` 并缓存；接口赋值本质上就是构造 `iface{ tab, data }`，实现动态类型绑定
 
@@ -1037,112 +1037,25 @@ type eface struct {
  若用到依赖具体类型的操作（如 **map 的哈希/相等性**、接口方法调用、`==`、`<=` 在某些约束下的实现），编译器会为实例**传入算法字典/专用 helper**，或生成额外实例，因此**底层略复杂**，但仍保持**类型安全**与**接近手写的性能**。
  例：`map[K]V` 的 `K` 需要专属的 hash/eq 函数
 
-
-
-# 手搓time
-
-看时间吧，时间还够就带大家手搓一个用到本课大部分内容的demo
-
-```go
-package main
-
-import (
-	"fmt"
-	"strings"
-)
-
-type Alice struct {
-	Name  string
-	Age   int
-	Lover string
-}
-
-type Bob struct {
-	Name  string
-	Age   int
-	Intro string
-}
-
-type Carol struct {
-	Name string
-}
-
-type AliceConf struct {
-	Name  string
-	Age   int
-	Lover string
-}
-
-type BobConf struct {
-	Name string
-	Age  int
-	Tags []string
-}
-
-type CarolConf struct {
-	Name string
-}
-
-type DefaultPtr[T usedType, C usedTypeConf] interface {
-	*T
-	Init(C)
-}
-
-type usedType interface {
-	Alice | Bob | Carol
-}
-
-type usedTypeConf interface {
-	*AliceConf | *BobConf | *CarolConf
-}
-
-func (a *Alice) Init(cfg *AliceConf) {
-	a.Name = cfg.Name
-	a.Age = cfg.Age
-	a.Lover = cfg.Lover
-}
-
-func (b *Bob) Init(cfg *BobConf) {
-	b.Name = cfg.Name
-	b.Age = cfg.Age
-	b.Intro = fmt.Sprintf("I like to %v", strings.Join(cfg.Tags, ","))
-}
-
-func (c *Carol) Init(cfg *CarolConf) {
-	c.Name = cfg.Name
-}
-
-func Default[T usedType, C usedTypeConf, ptr DefaultPtr[T, C]](cfg C) T {
-	var t T
-	ptr.Init(&t, cfg) // (&t).Init(cfg)
-	return t
-}
-
-func main() {
-	fmt.Println(Default[Alice, *AliceConf](&AliceConf{
-		Name:  "Alice",
-		Age:   20,
-		Lover: "Bob",
-	}))
-	fmt.Println(Default[Bob, *BobConf](&BobConf{
-		Name: "Bob",
-		Age:  18,
-		Tags: []string{"Sport", "Coding"},
-	}))
-}
-
-```
-
-
-
 # 作业
+这节课的内容有点多，大家好好消化一下，暂时不要求你需要多会用（因为后面用的多，早晚能会），但是至少需要能够大致理解这一节课的内容。   
+以下level可以选择一个完成即可。但是大家可以试着让作业内部的区分度更高，~~让我更方便查看作业~~ 提升一下代码可读性。  
+我不反对大家使用ai等工具进行学习，但是建议**不要**直接把ai的代码交上来  
 
-1. 好好消化，本节课内容有点多
-2. 实现一个任意你想实现的东西，例如原神用户管理系统，`MyGo`防炸团系统等等；最好用到部分本节课的内容，体现一下本节课的思想hhh，**做得好的有奶茶QAQ** ~~老东西早该爆金币了~~
+level 1
+   1. 除了之前的main包，再额外创建一个包体会一下可见性、init()函数，并实验一下同一个包内和不同的包的init()的执行顺序。
+   2. 尝试写一个函数用来修改传入的参数的值，对比是否使用指针的情况
+   3. 声明一个结构体，写一个方法用于修改该结构体的字段，体会方法接收者为值和指针的区别
+   4. 尝试声明多个结构体和一个接口，让这些结构体都满足这个接口，体会一下接口的用处。
+   5. 在4的基础上写一个或多个父类，然后让3中的结构体继承这个父类，并尝试重写方法，体会一下组合的用法，另外可以尝试一下多个父类有相同方法的情况
+   6. 写一个泛型函数用于计算两个数之和，可以适配各个长度的浮点数和整数
 
-完成后提交到邮箱kangqiao@lanshan.email
+level 2
+   1. 实现一个任意你想实现的东西，例如原神用户管理系统，`MyGo`防炸团系统等等；最好用到部分本节课的内容，体现一下本节课的思想。~~实在懒得想作业了，用一下上一届的~~ 复用一下上一届这节课的作业
 
-有什么问题也可以发邮箱/私聊我问哦
+完成后将github仓库地址提交到邮箱`liuqingzhe@lanshan.email`
+
+有什么问题也可以发邮箱/私聊我问哦，头像是洋葱切片的那一条区就是我了
 
 
 
