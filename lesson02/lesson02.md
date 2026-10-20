@@ -807,7 +807,7 @@ func (l *Lanshaner) Work() {
 
 func main() {
 	kq := Lanshaner{
-		Info:  Info{Name: "康桥"},
+		Info:  Info{Name: "康神"},
 		Group: "后端Go组",
 	}
 
@@ -937,7 +937,126 @@ func Max[T myType](a,b T)T{ // myType 替代了刚刚的 int | float32,支持的
 
 **注意:接口可以同时具有类型约束和方法，但只要存在类型约束就只能作为一个类型变量使用了**
 
+### 泛型方法
+前面的泛型部分是在Go 1.18便已经加入了，这一部分的泛型方法是go 1.27才引入的。  
+相比传统泛型结构体的方法：  
+```go
+type Astruct[K comparable, V any] struct {
+    hashMap map[K]V
+} //泛型结构体
+func NewAstruct[K comparable,V any]()*Astruct[K,V]{
+    return &Astruct[K,V]{
+        make(map[K]V),
+    }
+}//泛型函数
+func (a *Astruct[K,V]) Get(Key K) V {
+    return a.hashMap[Key]
+}//泛型结构体的方法（不是泛型方法）
+func (a *Astruct[K,V]) Set(Key K, value V) {
+    a.hashMap[Key] = value
+}
+```
+泛型方法除了可以使用接收者的泛型参数（如果接收者是泛型类型），还可以拥有**属于方法自己**的类型参数。类型参数列表要写在**方法名之后、参数列表之前**：
 
+```go
+func (接收者) 方法名[T 约束](参数) 返回值 { ... }
+```
+
+比如：
+```go
+type kq struct{
+	data any
+}//不含泛型参数
+func (kq)Eat[T ~int8|~int16|~int32|~int64|~int](foodName string,foodNumber T){
+	fmt.Printf("我吃了%d个%s",foodNumber,foodName)
+}//有自己的泛型参数T
+func Kq_Eat[T ~int8|~int16|~int32|~int64|~int](_ kq,foodName string,foodNumber T){
+    fmt.Printf("我吃了%d个%s",foodNumber,foodName)
+}//泛型函数的同等实现
+```
+泛型类型上的方法也能同时带两组类型参数（接收者的类型参数 + 方法自己的类型参数，名字不能重复）：
+
+```go
+type List[E any] struct {
+    items []E
+}
+
+// 接收者的 E + 方法自己的 R
+func (l List[E]) Map[R any](f func(E) R) List[R] {
+    res := List[R]{items: make([]R, 0, len(l.items))}
+    for _, v := range l.items {
+        res.items = append(res.items, f(v))
+    }
+    return res
+}
+```
+
+#### 使用：必须先实例化
+
+泛型方法和泛型函数一样，**调用或当作函数值使用之前必须先实例化**（显式指定，或从参数推断）：
+
+```go
+var x kq
+
+x.Eat[int]("苹果", 3) // 显式指定 T = int
+x.Eat("苹果", 3)      // 从参数推断：T = int
+```
+
+```go
+// 类型参数只出现在返回值、无法从参数推断时，必须显式实例化
+func (kq) New[T any]() T {
+    var zero T
+    return zero
+}
+
+_ = kq{}.New[int]()
+```
+
+方法表达式、方法值同样要先实例化：
+
+```go
+f := List[int].Map[int] // 方法表达式
+```
+
+#### 限制：接口不认可泛型方法
+
+Go 1.27 **仍然不允许接口方法声明类型参数**，下面这种写法是非法的：
+
+```go
+type I interface {
+    M[T any]() // ❌ 非法：接口方法不能有类型参数
+}
+```
+
+因此**泛型方法永远不会出现在接口的方法集里**，也就无法用来实现接口：
+
+```go
+type Reader interface{ Read() }
+
+type S struct{}
+func (S) Read[T any]() {} // 这不算实现了 Reader.Read
+
+var _ Reader = S{} // ❌ S 不满足 Reader（Reader.Read 是非泛型的）
+```
+
+也正因为如此，**通过接口类型的变量调用泛型方法是不行的**，必须先类型断言回具体类型：
+
+```go
+var x any = kq{}
+
+// x.Eat("苹果", 3)     // ❌ any 的方法集里没有 Eat
+x.(kq).Eat("苹果", 3)   // ✅ 断言成具体类型后即可（本身持有具体类型时无需断言）
+```
+
+> 补充：Go 不支持方法重载，不能靠“类型参数不同”声明两个同名方法，`Eat[T]` 与 `Eat[U]` 只能存在一个。泛型方法同样遵守值/指针接收者规则。
+
+#### 为什么 1.18 不允许，1.27 才放开？
+
+在 1.27 之前，开发者想实现“带泛型效果的方法”，往往只能写包级别的泛型函数，这会侵占命名空间，调用起来也不够自然。
+
+而接口方法至今仍不能声明类型参数：若允许，一个接口值背后可能是任意具体类型、任意类型参数组合，跨包编译时难以为所有可能的实例化提前生成代码（要么生成大量实例，要么装箱/走字典带来间接调用开销）。所以 Go 1.27 只放开了**具体类型（非接口）的方法**。
+
+因此，泛型方法更接近一个**组织与可读性层面的改进（有语法糖性质）**：它把 receiver 隐式化，`list.Map(f)` 比 `Map(list, f)` 更自然，也不侵占包级命名空间；但它无法参与接口实现。
 
 # 底层简单解析
 
