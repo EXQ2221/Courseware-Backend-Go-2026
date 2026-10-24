@@ -113,7 +113,7 @@ import _ "github.com/go-sql-driver/mysql"
 可以用下面这个命令拉网上第三方仓库的依赖,然后就可以用别人造好的轮子啦～
 
 ```shell
-go get "github.com/J1407B-K/buff"
+go get "github.com/Lqingzhe/go-common-tool"
 ```
 
 也要记得定期`go mod tidy`一下，可以清理未用/补缺的包依赖
