@@ -113,7 +113,7 @@ import _ "github.com/go-sql-driver/mysql"
 可以用下面这个命令拉网上第三方仓库的依赖,然后就可以用别人造好的轮子啦～
 
 ```shell
-go get "github.com/J1407B-K/buff"
+go get "github.com/Lqingzhe/go-common-tool"
 ```
 
 也要记得定期`go mod tidy`一下，可以清理未用/补缺的包依赖
@@ -164,12 +164,13 @@ func main() {
 
 ```go
 func main() {
-	a := 10
-	b := &a
+  a := 10
+  b := &a
   c := &b
-	fmt.Printf("a:%d ptr:%p\n", a, &a) // a:10 ptr:0xc00001a078
-	fmt.Printf("b:%p type:%T\n", b, b) // b:0xc00001a078 type:*int
+  fmt.Printf("a:%d ptr:%p\n", a, &a) // a:10 ptr:0xc00001a078
+  fmt.Printf("b:%p type:%T\n", b, b) // b:0xc00001a078 type:*int
   fmt.Printf("c:%p type:%T val:%d \n",c,c,**c) //c:0x14000052038 type:**int val:10 
+  // c-> b-> a
 }
 ```
 
@@ -505,7 +506,7 @@ func (l Lanshaner)Set(age int){
 ### 什么时候应该使用指针类型接收者
 
 1. 需要**修改**接收者中的值
-2. 接收者是**拷贝代价比较大**的大对象
+2. 接收者是**拷贝代价比较大**的大对象(目前业内没有一个具体的标准，但是64字节以下的可以优先考虑**值类型**接收者)
 3. 保证**一致性**，如果有某个方法使用了指针接收者，那么其他的方法也应该使用指针接收者。
 
 **注意事项：** **非本地类型**不能定义方法，也就是说我们不能给别的包的类型定义方法，保证了隔离
@@ -583,7 +584,7 @@ type Bird struct {}
 ```go
 // Sing Bird类型的Sing方法
 func (b Bird) Sing() {
-		fmt.Println("汪汪汪")
+	fmt.Println("汪汪汪")
 }
 ```
 
@@ -609,6 +610,10 @@ func Fprintf(w io.Writer, format string, a ...any) (n int, err error) {
 	p.free()
 	return
 }
+
+type Writer interface {
+    Write(p []byte) (n int, err error)
+}// 官方库io中Writer接口的定义
 ```
 
 这里的`w`就是`io.Writer`，我们可以传入任意实现了`io.Writer`的具体类型，因为它可以是那只**鸭子**的值（注意会对`n==len(p)`进行检查，自定义类型的时候要注意）
@@ -677,9 +682,9 @@ func updateUser(name string, newInfo string, newEmail string) {
 
 func main() {
   // 调用链路太💩
-	addUser("康桥", 19, "面硬加咸蔬菜加倍蒜末和油多多", "1768832245@qq.com")
-	updateUser("康桥", "0d000721", "kangqiao@lanshan.com")
-	deleteUser("康桥", "0d000721")
+	addUser("刘庆喆", 18, "面硬加咸蔬菜加倍蒜末和油多多", "an email")
+	updateUser("刘庆喆", "0d000721", "other email")
+	deleteUser("刘庆喆", "0d000721")
 }
 ```
 
@@ -730,14 +735,14 @@ func main() {
 	manager := UserManager{} // 管理者 => 之后会用数据库进行持久化
   // 对象实例，直观修改
 	user := User{
-		Name:  "康桥",
-		Age:   19,
+		Name:  "刘庆喆",
+		Age:   18,
 		Info: "面硬加咸蔬菜加倍蒜末和油多多",
-		Email: "kq@example.com",
+		Email: "an email",
 	}
 
 	manager.Add(user)
-	manager.Update(&user, "0d000721", "kangqiao@lanshan.com")
+	manager.Update(&user, "0d000721", "another email")
 	manager.Delete(user)
 }
 ```
@@ -807,7 +812,7 @@ func (l *Lanshaner) Work() {
 
 func main() {
 	kq := Lanshaner{
-		Info:  Info{Name: "康神"},
+		Info:  Info{Name: "洋葱"},
 		Group: "后端Go组",
 	}
 
