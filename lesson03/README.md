@@ -1,8 +1,8 @@
-# 蓝山工作室——Golang第四节课：常用标准库
+# 蓝山工作室——Golang第三节课：常用标准库
 
 ### 前言
 
-前三节课讲完了语法、复合数据类型和面向对象。这节课讲标准库。
+前两节课讲完了语法、复合数据类型和面向对象。这节课讲标准库。
 
 标准库的包比较多，按包逐个讲容易散。这节课按一条日志的处理流程来讲：一条日志从终端读入，经过解析和格式化，写入文件，再读回来统计。每个包对应流程中的一环。
 
@@ -15,24 +15,11 @@
 
 ***
 
-## 本节地图
-
-| 步骤 | 做什么 | 用到的包 |
-| --- | --- | --- |
-| ① 接收日志 | 从终端读一行完整文本 | `fmt`、`bufio` |
-| ② 解析与校验 | 切成字段、转类型、检查合法性 | `strings`、`strconv`、`errors` |
-| ③ 格式化 | 加上时间、拼成规范格式 | `time`、`fmt` |
-| ④ 写入文件 | 追加写、带缓冲、记得 Flush | `os`、`io`、`bufio` |
-| ⑤ 读取与统计 | 逐行扫描、分类计数 | `os`、`bufio.Scanner`、`strings` |
-| ⑥ 内存中组装 | 拼接大段文本 | `strings.Builder`、`bytes.Buffer` |
-
-***
-
-## 一、接收日志：`fmt` 与 `bufio`
+## 接收日志：`fmt` 与 `bufio`
 
 `fmt` 包实现了类似 C 语言 printf 和 scanf 的格式化 I/O(input/output)。
 
-### 输出部分
+### 输出
 
 **fmt.Print**：直接输出，不带格式，输出到标准输出
 
@@ -152,11 +139,11 @@ if err != nil {
 }
 ```
 
-`*os.File` 实现了 `io.Writer` 接口，所以可以传给 `Fprintf`。终端、文件、网络连接、内存缓冲区都可以，只要实现了 `Write` 方法。这个接口在第四章展开。
+`*os.File` 实现了 `io.Writer` 接口，所以可以传给 `Fprintf`。终端、文件、网络连接、内存缓冲区都可以，只要实现了 `Write` 方法。这个接口在讲 `io` 时展开。
 
 同理还有Sprint，Sprintln，Fprint，Fprintln。`S` 对应 String，`F` 对应某个 Writer。
 
-### 输入部分
+### 输入
 
 **fmt.Scan**：从标准输入中读取数据，以空格分隔，换行也视为空格（类似于 c++ 中的 cin）
 
@@ -264,7 +251,7 @@ for {
 }
 ```
 
-上面的循环不区分文件结束和真正的错误。更严谨的写法是判断 `err == io.EOF`，第五章展开。
+上面的循环不区分文件结束和真正的错误。更严谨的写法是判断 `err == io.EOF`，读文件统计时再展开。
 
 ### fmt.Errorf 与错误链
 
@@ -295,6 +282,33 @@ if err != nil {
 
 用 `%w` 时，新错误把原错误包在里面，调用方可以用 `errors.Is` 或 `errors.As` 取出原错误判断，同时错误信息保留上下文。日志程序每个环节都建议这样包一层，否则只能看到一句 `EOF`。
 
+### bufio.Reader：读一整行
+
+`fmt` 的输入函数按空格分词，读不到含空格的整行文本。读整行要用 `bufio.Reader`。
+
+`bufio` 包在内存中加一层缓冲区，数据先读进缓冲区，程序再从缓冲区里取，这样能减少访问底层数据流的次数。`os.Stdin` 就是被包装的底层读取器（`os` 包和 `io.Reader` 接口后面再讲）。
+
+**NewReader**：创建带缓冲的读取器
+
+```go
+func NewReader(rd io.Reader) *Reader
+```
+
+**ReadString**：读取直到遇到分隔符，返回值包含分隔符
+
+```go
+func (b *Reader) ReadString(delim byte) (string, error)
+```
+
+```go
+reader := bufio.NewReader(os.Stdin)
+line, err := reader.ReadString('\n')
+```
+
+读到的 `line` 结尾带 `\n`（Windows 上是 `\r\n`），需要自己清理。
+
+`bufio.Reader` 的其余方法，以及 `bufio.Writer` 和缓冲的完整说明，在后面讲 `os` 写文件时展开。这里只需要会用 `NewReader` 和 `ReadString`。
+
 ### 动手：读入一条日志
 
 日志格式约定为三段：
@@ -321,9 +335,8 @@ func readLogLine() (string, error) {
 }
 ```
 
-- `bufio.NewReader(os.Stdin)`：给标准输入加一层缓冲区，返回 `*bufio.Reader`。
-- `ReadString('\n')`：读到 `\n` 为止，返回值包含 `\n`。
-- `strings.TrimSpace`：去掉首尾空白。Windows 上回车得到 `\r\n`，不清理的话最后一段会带 `\r`，`Atoi` 会报错。
+- `reader.ReadString('\n')` 的返回值包含换行符，交给 `strings.TrimSpace` 去掉（`strings` 后面细讲）。
+- Windows 上回车得到 `\r\n`，不清理的话最后一段会带 `\r`，`Atoi` 会报错。
 
 ### 注意
 
@@ -335,7 +348,7 @@ func readLogLine() (string, error) {
 
 ***
 
-## 二、解析日志：`strings` 与 `strconv`
+## 解析日志：`strings` 与 `strconv`
 
 一行 `INFO,用户登录,200`，需要拆成三个字段并转换类型。
 
@@ -581,6 +594,8 @@ func parseEntry(line string) (Entry, error) {
 
 这段代码用到了 `Split` 切分、`TrimSpace` 去空白、`ToUpper` 统一大小写、`Atoi` 转数字、`errors.New` 构造错误、`fmt.Errorf` 包装错误。
 
+`errors.New` 返回一个只有错误信息的 error，不支持格式化，和 `fmt.Errorf` 是一对。
+
 先校验 `len(parts)` 的原因：用户只输入 `INFO,用户登录`（少一段）时，`parts[2]` 会越界 panic。先判断长度，再按下标取值。
 
 ### 注意
@@ -593,7 +608,7 @@ func parseEntry(line string) (Entry, error) {
 
 ***
 
-## 三、格式化日志：`time` 与 `fmt`
+## 格式化日志：`time` 与 `fmt`
 
 ### 时间
 
@@ -601,8 +616,8 @@ func parseEntry(line string) (Entry, error) {
 
 ```go
 type Time struct {
-    wall uint64    // 墙上时钟
-    ext  int64     // Unix 时间戳
+    wall uint64    // 内部表示
+    ext  int64     // 内部表示
     loc  *Location // 时区
 }
 ```
@@ -671,7 +686,7 @@ fmt.Println(t.Year()) // 2026
 
 tips：Go语言中格式化时间模板不是常见的 `Y-m-d H:M:S` 而是使用Go语言的诞生时间 2006 年 1 月 2 号 15 点 04 分 05 秒，也就是 `2006-01-02 15:04:05`（记不住没关系，IDE会帮你的）
 
-layout 中各部分的对应关系：
+layout 中各元素的对应关系：
 
 | 想要 | 写法 |
 | --- | --- |
@@ -955,7 +970,7 @@ func (e Entry) StringWithUnix() string {
 
 ### 注意
 
-1. layout 写错不会报错，只会原样输出。`"2026-10-21"` 中没有任何占位符被识别。
+1. layout 写错不会报错，只会输出错乱的结果。例如 `t.Format("2026-10-21")` 得到 `21216-100-2110`，因为其中每个数字都被当成占位符解析了。
 2. `Format` 和 `Parse` 的 layout 要一致。
 3. `Parse` 默认返回 UTC 时间。
 4. 不要用 `==` 比较 `Time`，用 `Equal`。
@@ -965,7 +980,7 @@ func (e Entry) StringWithUnix() string {
 
 ***
 
-## 四、写入日志文件：`io` 与 `os`
+## 写入日志文件：`io` 与 `os`
 
 ### io
 
@@ -1256,7 +1271,7 @@ func NewWriter(w io.Writer) *Writer
 ```go
 file, err := os.Create("output.txt")
 if err != nil {
-    log.Fatal(err)
+    panic(err)
 }
 defer file.Close()
 
@@ -1299,6 +1314,8 @@ func (b *Writer) Flush() error
 
 #### Reader
 
+前面读入日志时已经用过 `bufio.NewReader` 和 `ReadString` 读整行，这里补充它的内部结构和其余方法。
+
 `bufio.Reader` 是一个带有缓冲区的 `io.Reader` 接口的实现，它会在内存中存储从底层 `io.Reader` 中读取到的数据，然后先从内存缓冲区中读取数据，这样可以减少访问底层 `io.Reader` 对象的次数以及减轻操作系统的压力。结构体定义：
 
 ```go
@@ -1325,7 +1342,7 @@ func NewReader(rd io.Reader) *Reader
 ```go
 file, err := os.Open("example.txt")
 if err != nil {
-    log.Fatal(err)
+    panic(err)
 }
 defer file.Close()
 
@@ -1388,7 +1405,7 @@ func appendLog(path, line string) error {
 }
 ```
 
-各部分的说明：
+各项的说明：
 
 - `O_CREATE|O_WRONLY|O_APPEND`：不存在就建、只写、每次追加到末尾。
 - `0644`：`rw-r--r--`。
@@ -1553,7 +1570,7 @@ go run . -file logs/app.log -stat
 
 ***
 
-## 五、读取日志并统计：`bufio.Scanner` 与 `strings`
+## 读取日志并统计：`bufio.Scanner` 与 `strings`
 
 ### Scanner
 
@@ -1669,7 +1686,7 @@ scanner.Buffer(make([]byte, 64*1024), 1024*1024) // 最大 1MB
 
 ***
 
-## 六、在内存里组装文本：`strings.Builder` 与 `bytes.Buffer`
+## 在内存里组装文本：`strings.Builder` 与 `bytes.Buffer`
 
 `bytes` 和 `strings` 包分别提供了对字节切片 (`[]byte`) 和字符串 (`string`) 的高效操作函数。
 
@@ -1808,250 +1825,51 @@ func buildReport(counts map[string]int) string {
 
 ***
 
-## 七、串起来：完整的小工具
+## 全流程回顾
 
-把前面六章的片段拼成一个能跑的程序。
+前面各步的片段按顺序拼起来就是一个完整的日志工具。这里不给完整实现，各步骤对应的函数如下：
 
-### 目录结构
+| 步骤 | 函数 |
+| --- | --- |
+| 读入一行 | `readLogLine` |
+| 解析校验 | `parseEntry` |
+| 拼日志行 | `Entry.String` |
+| 追加写入 | `appendLog` |
+| 逐行统计 | `countLevels` |
+| 拼统计报告 | `buildReport` |
 
-```
-logtool/
-├── go.mod
-└── main.go
-```
-
-```shell
-mkdir logtool && cd logtool
-go mod init logtool
-```
-
-### main.go
-
-```go
-// logtool：第四节课的主线小工具
-//
-// 用法：
-//
-//	go run .                              交互输入一条日志，追加写入 app.log
-//	go run . -stat                        统计 app.log 中各日志级别的条数
-//	go run . -file logs/app.log           指定日志文件
-package main
-
-import (
-	"bufio"
-	"errors"
-	"flag"
-	"fmt"
-	"os"
-	"strconv"
-	"strings"
-	"time"
-)
-
-const timeLayout = "2006-01-02 15:04:05"
-
-// Entry 是一条日志记录
-type Entry struct {
-	Level   string // INFO / WARN / ERROR
-	Content string // 日志正文
-	Code    int    // 状态码
-}
-
-// String 让 Entry 满足 fmt.Stringer，Println 时自动用这个格式
-func (e Entry) String() string {
-	return fmt.Sprintf("[%s] [%s] %s (code=%d)",
-		time.Now().Format(timeLayout), e.Level, e.Content, e.Code)
-}
-
-// readLogLine 从终端读入一行完整文本
-func readLogLine() (string, error) {
-	fmt.Print("请输入日志（格式：级别,内容,状态码）：")
-
-	reader := bufio.NewReader(os.Stdin)
-	line, err := reader.ReadString('\n')
-	if err != nil {
-		return "", fmt.Errorf("读取输入失败: %w", err)
-	}
-
-	return strings.TrimSpace(line), nil
-}
-
-// parseEntry 把 "INFO,用户登录,200" 解析成 Entry
-func parseEntry(line string) (Entry, error) {
-	parts := strings.Split(line, ",")
-	if len(parts) != 3 {
-		return Entry{}, fmt.Errorf("日志格式错误：期望 3 个字段，实际 %d 个", len(parts))
-	}
-
-	level := strings.ToUpper(strings.TrimSpace(parts[0]))
-	switch level {
-	case "INFO", "WARN", "ERROR":
-	default:
-		return Entry{}, fmt.Errorf("未知的日志级别: %q", parts[0])
-	}
-
-	content := strings.TrimSpace(parts[1])
-	if content == "" {
-		return Entry{}, errors.New("日志内容不能为空")
-	}
-
-	code, err := strconv.Atoi(strings.TrimSpace(parts[2]))
-	if err != nil {
-		return Entry{}, fmt.Errorf("状态码 %q 不是合法整数: %w", parts[2], err)
-	}
-
-	return Entry{Level: level, Content: content, Code: code}, nil
-}
-
-// appendLog 把一行日志追加到文件末尾
-func appendLog(path, line string) error {
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
-	if err != nil {
-		return fmt.Errorf("打开日志文件 %s 失败: %w", path, err)
-	}
-	defer file.Close()
-
-	writer := bufio.NewWriter(file)
-	if _, err := writer.WriteString(line + "\n"); err != nil {
-		return fmt.Errorf("写入缓冲失败: %w", err)
-	}
-	if err := writer.Flush(); err != nil {
-		return fmt.Errorf("刷新缓冲失败: %w", err)
-	}
-	return nil
-}
-
-// countLevels 统计日志文件中各级别的条数
-func countLevels(path string) (map[string]int, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, fmt.Errorf("打开日志文件失败: %w", err)
-	}
-	defer file.Close()
-
-	counts := map[string]int{}
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := scanner.Text()
-		for _, level := range []string{"INFO", "WARN", "ERROR"} {
-			if strings.Contains(line, "["+level+"]") {
-				counts[level]++
-			}
-		}
-	}
-	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("扫描日志文件失败: %w", err)
-	}
-
-	return counts, nil
-}
-
-// buildReport 把统计结果拼成一段报告
-func buildReport(counts map[string]int) string {
-	var b strings.Builder
-	b.WriteString("==== 日志统计 ====\n")
-	for _, level := range []string{"INFO", "WARN", "ERROR"} {
-		fmt.Fprintf(&b, "%-6s %d\n", level, counts[level])
-	}
-	return b.String()
-}
-
-func main() {
-	// 默认路径优先取环境变量，再退回 app.log
-	defaultPath := os.Getenv("LOG_FILE")
-	if defaultPath == "" {
-		defaultPath = "app.log"
-	}
-
-	filePath := flag.String("file", defaultPath, "日志文件路径")
-	statOnly := flag.Bool("stat", false, "只统计，不写入新内容")
-	flag.Parse()
-
-	if *statOnly {
-		counts, err := countLevels(*filePath)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, "统计失败:", err)
-			os.Exit(1)
-		}
-		fmt.Print(buildReport(counts))
-		return
-	}
-
-	line, err := readLogLine()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "读取失败:", err)
-		os.Exit(1)
-	}
-
-	entry, err := parseEntry(line)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "解析失败:", err)
-		os.Exit(1)
-	}
-
-	if err := appendLog(*filePath, entry.String()); err != nil {
-		fmt.Fprintln(os.Stderr, "写入失败:", err)
-		os.Exit(1)
-	}
-
-	fmt.Println("已写入:", entry)
-}
-```
-
-### 跑一遍
-
-```shell
-$ go run .
-请输入日志（格式：级别,内容,状态码）：INFO,用户登录,200
-已写入: [2026-10-21 17:52:51] [INFO] 用户登录 (code=200)
-
-$ go run .
-请输入日志（格式：级别,内容,状态码）：ERROR,数据库连接失败,500
-已写入: [2026-10-21 17:52:58] [ERROR] 数据库连接失败 (code=500)
-
-$ go run . -stat
-==== 日志统计 ====
-INFO   1
-WARN   0
-ERROR  1
-```
-
-```shell
-$ cat app.log
-[2026-10-21 17:52:51] [INFO] 用户登录 (code=200)
-[2026-10-21 17:52:58] [ERROR] 数据库连接失败 (code=500)
-```
-
-### 流程回顾
+数据在各步骤之间的变化：
 
 ```
 终端输入
-   │  bufio.NewReader + ReadString('\n')       ← 第一章
+   │  bufio.NewReader + ReadString('\n')
    ▼
 "INFO,用户登录,200"
-   │  strings.Split / TrimSpace / ToUpper      ← 第二章
+   │  strings.Split / TrimSpace / ToUpper
    │  strconv.Atoi
    ▼
 Entry{INFO, 用户登录, 200}
-   │  time.Now().Format + fmt.Sprintf          ← 第三章
+   │  time.Now().Format + fmt.Sprintf
    ▼
 "[2026-10-21 17:52:51] [INFO] 用户登录 (code=200)"
-   │  os.OpenFile + bufio.Writer + Flush       ← 第四章
+   │  os.OpenFile + bufio.Writer + Flush
    ▼
 app.log
-   │  os.Open + bufio.Scanner                  ← 第五章
+   │  os.Open + bufio.Scanner
    ▼
 map[INFO:1 WARN:0 ERROR:1]
-   │  strings.Builder + fmt.Fprintf            ← 第六章
+   │  strings.Builder + fmt.Fprintf
    ▼
 "==== 日志统计 ===="
 ```
 
-这个工具目前没有日志级别过滤、不支持多行、并发写不安全，作业里会补上。
+`main` 函数按顺序调用上面几个函数即可，参数用 `-file` 和 `-stat` 两个开关处理。
+
+这个工具目前不支持日志级别过滤、不支持多行日志、并发写也不安全，作业里会补上。
 
 ***
 
-## 八、实用第三方库
+## 实用第三方库
 
 ### Viper
 
@@ -2353,7 +2171,7 @@ func main() {
 
 ***
 
-## 九、速查表
+## 速查表
 
 ### 常用库
 
@@ -2418,7 +2236,7 @@ func main() {
 
 ***
 
-## 十、作业
+## 作业
 
 ### LV0
 
